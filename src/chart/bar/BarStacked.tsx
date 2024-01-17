@@ -32,7 +32,7 @@ export default function BarStacked(props: ChartStyle) {
 
 function CreateBarStacked(
 	element: React.RefObject<SVGElement>,
-	props: ChartStyle,
+	props: ChartStyle
 ) {
 	let {
 		data,
@@ -56,22 +56,21 @@ function CreateBarStacked(
 	yAxis.range = [base.height - margin.bottom, margin.top];
 
 	const x = d3.map<object, string>(data, mapper.getX);
+	const group = d3.map<object, object>(data, mapper.getGroup);
+	const keys = Object.keys(group[0]);
+	const groupedData = groupData(keys, group, x);
 
-	let rowKeys: string[] = [];
-	mapper.keys.forEach((key) => rowKeys.push(key));
-
-	const newData = groupData(rowKeys, data, x);
-
-	newData.forEach((g, i) => {
+	groupedData.forEach((g, i) => {
 		g.value.map((_, k) => {
 			if (i >= 1)
-				newData[i].value[k].stackedY += newData[i - 1].value[k].stackedY;
+				groupedData[i].value[k].stackedY +=
+					groupedData[i - 1].value[k].stackedY;
 		});
 	});
 
 	xAxis.domain = x.filter((d) => d !== "");
-	const domain2 = d3.max(newData, (obj) =>
-		d3.max(obj.value, (obj) => obj.stackedY),
+	const domain2 = d3.max(groupedData, (obj) =>
+		d3.max(obj.value, (obj) => obj.stackedY)
 	);
 	yAxis.domain = [0, domain2 !== undefined ? domain2 * 1.15 : 0];
 	xAxis.domain = new d3.InternSet<string>(xAxis.domain as Iterable<string>);
@@ -81,7 +80,7 @@ function CreateBarStacked(
 		.padding(xAxis.padding);
 	const yScale = d3.scaleLinear(
 		yAxis.domain as Iterable<NumberValue>,
-		yAxis.range,
+		yAxis.range
 	);
 
 	const xAxisType = d3
@@ -98,7 +97,7 @@ function CreateBarStacked(
 	if (base.color === undefined)
 		base.color = d3.schemeAccent as Iterable<string>;
 
-	const colorScale = d3.scaleOrdinal(rowKeys, base.color);
+	const colorScale = d3.scaleOrdinal(keys, base.color);
 	const barWidth = xScale.bandwidth() / 2;
 
 	if (font.size === undefined)
@@ -112,8 +111,8 @@ function CreateBarStacked(
 			xAxisType,
 			props,
 			false,
-			barWidth * rowKeys.length * x.length,
-			x,
+			barWidth * keys.length * x.length,
+			x
 		);
 	}
 
@@ -124,7 +123,7 @@ function CreateBarStacked(
 
 	const Bar = svg.append("g");
 	const createBar = Bar.selectAll("rect");
-	newData.forEach((d, i) => {
+	groupedData.forEach((d, i) => {
 		createBar
 			.data(d.value)
 			.join("rect")
@@ -149,7 +148,7 @@ function CreateBarStacked(
 		createBarValue = barValue.selectAll("text");
 
 	if (fill.value.enabled) {
-		newData.forEach((d, i) => {
+		groupedData.forEach((d, i) => {
 			createBarValue
 				.data(d.value)
 				.join("text")
@@ -168,7 +167,7 @@ function CreateBarStacked(
 	}
 
 	if (animation.enabled) {
-		newData.forEach((d, i) => {
+		groupedData.forEach((d, i) => {
 			Bar.selectAll(".bar_" + i)
 				.data(d.value)
 				.attr("y", base.height - margin.bottom)
@@ -201,12 +200,12 @@ function CreateBarStacked(
 	}
 
 	const onHover = (event: unknown, index: number) => {
-		newData.forEach((data, i) => {
+		groupedData.forEach((data, i) => {
 			if (i === index) {
 				const newDomain = d3.max(data.value, (d) => d.y);
 				const newYScale = d3.scaleLinear(
 					[0, newDomain !== undefined ? newDomain * 1.1 : 0],
-					yAxis.range,
+					yAxis.range
 				);
 				YAxis.recreate(d3.axisLeft(newYScale).ticks(base.height / 40));
 
@@ -268,7 +267,7 @@ function CreateBarStacked(
 	const noHover = () => {
 		YAxis.recreate(yAxisType);
 
-		newData.forEach((data, i) => {
+		groupedData.forEach((data, i) => {
 			Bar.selectAll(".bar_" + i)
 				.data(data.value)
 				.transition()
@@ -298,7 +297,7 @@ function CreateBarStacked(
 	};
 
 	if (legend.enabled) {
-		createLegend(svg, rowKeys, colorScale, props, onHover, noHover);
+		createLegend(svg, keys, colorScale, props, onHover, noHover);
 	}
 
 	if (tooltip.enabled) {
@@ -327,8 +326,8 @@ BarStacked.propTypes = {
 
 BarStacked.defaultProps = {
 	mapper: {
-		getX: (d: any) => d.group,
-		keys: ["y"],
+		getX: (d: any) => d.x,
+		getGroup: (d: any) => d.group,
 	},
 	base: {
 		width: undefined,
